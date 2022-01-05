@@ -1,0 +1,26 @@
+[package]
+name = "conversation_bot"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+teloxide = { version = "0.5.3", features = ["auto-send", "macros"] }
+
+pretty_env_logger = "0.4.0"
+log = "0.4"
+
+futures = "0.3"
+tokio = { version = "1.12", features = ["macros", "io-util", "signal", "time", "rt-multi-thread"] }
+
+regex = "1.5.4"
+itertools = "0.10.1"
+#rand = { version = "0.8", features = ["std_rng"] }
+chrono = "0.4.19"
+#json = "0.12.4"
+#curl = "0.4.41"
+#openai-api = "0.1.4"
+openai-api = { git = "https://github.com/gorilskij/openai-api-rust" }
+
+lazy_static = "1.4.0"
