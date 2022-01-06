@@ -1,9 +1,9 @@
+use crate::result::{Error, Result};
+use crate::{AppError, FromUser, CONVERSATIONS, ERROR_LOGGER, OPENAI_CLIENT};
 use std::time::{SystemTime, UNIX_EPOCH};
 use teloxide::prelude::*;
 use teloxide::types::MessageKind;
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use crate::{AppError, CONVERSATIONS, ERROR_LOGGER, FromUser, OPENAI_CLIENT};
-use crate::result::{Result, Error};
 
 // TODO: give the bot the ability to end a conversation if it says "bye" or "goodbye"
 async fn handle_message(cx: UpdateWithCx<&Bot, Message>) -> Result {
@@ -22,17 +22,22 @@ async fn handle_message(cx: UpdateWithCx<&Bot, Message>) -> Result {
 
     // if there is a settings dialog active, deactivate it to prevent inconsistencies
     if let Some(conversation) = CONVERSATIONS.lock().await.get_mut(cx.update.chat_id()) {
-        conversation.deactivate_settings_dialog(&cx.requester).await?;
+        conversation
+            .deactivate_settings_dialog(&cx.requester)
+            .await?;
     }
 
     if let MessageKind::Common(_) = cx.update.kind {
         match cx.update.text() {
-            Some("/start" | "/start@nonautisticbot") => {
-                println!("got /start command");
-                match CONVERSATIONS.lock().await.start(cx.update.chat_id()) {
-                    Ok(_) => { cx.answer("Hello").send().await?; }
+            Some("/begin" | "/begin@nonautisticbot") => {
+                println!("got /begin command");
+                match CONVERSATIONS.lock().await.begin(cx.update.chat_id()) {
+                    Ok(_) => {
+                        cx.answer("Hello").send().await?;
+                    }
                     Err(Error::App(AppError::ConversationAlreadyRunning(_))) => {
-                        cx.answer("Conversation already running").send().await?; // TODO: since <timestamp>
+                        cx.answer("Conversation already running").send().await?;
+                        // TODO: since <timestamp>
                     }
                     res => res?,
                 }
@@ -40,9 +45,13 @@ async fn handle_message(cx: UpdateWithCx<&Bot, Message>) -> Result {
             Some("/end" | "/end@nonautisticbot") => {
                 println!("got /end command");
                 match CONVERSATIONS.lock().await.end(cx.chat_id()) {
-                    Ok(_) => { cx.answer("Goodbye").send().await?; }
+                    Ok(_) => {
+                        cx.answer("Goodbye").send().await?;
+                    }
                     Err(Error::App(AppError::NoConversationRunning(_))) => {
-                        cx.answer("No conversation currently running").send().await?;
+                        cx.answer("No conversation currently running")
+                            .send()
+                            .await?;
                     }
                     res => res?,
                 }
@@ -51,7 +60,13 @@ async fn handle_message(cx: UpdateWithCx<&Bot, Message>) -> Result {
             Some("/settings" | "/settings@nonautisticbot") => {
                 println!("got /settings command");
                 match CONVERSATIONS.lock().await.get_mut(cx.chat_id()) {
-                    None => { cx.answer("Settings are per-conversation, no conversation currently running").send().await?; }
+                    None => {
+                        cx.answer(
+                            "Settings are per-conversation, no conversation currently running",
+                        )
+                        .send()
+                        .await?;
+                    }
                     Some(conversation) => {
                         let message = cx
                             .requester
@@ -64,6 +79,21 @@ async fn handle_message(cx: UpdateWithCx<&Bot, Message>) -> Result {
                     }
                 }
             }
+            Some("/reset" | "/reset@nonautisticbot") => {
+                println!("got /reset command");
+                match CONVERSATIONS.lock().await.get_mut(cx.chat_id()) {
+                    None => {
+                        cx.answer("No conversation currently running")
+                            .send()
+                            .await?;
+                    }
+                    Some(conversation) => {
+                        conversation.clear_history();
+                        println!("cleared history");
+                        cx.answer("Reset bot memory").send().await?;
+                    }
+                }
+            }
             Some(msg) => {
                 println!("got message \"{}\"", msg);
                 let user = match cx.update.from() {
@@ -73,13 +103,18 @@ async fn handle_message(cx: UpdateWithCx<&Bot, Message>) -> Result {
                     }
                     None => {
                         println!("message without sender");
-                        Err(AppError::MessageWithoutSender(cx.chat_id(), msg.to_string()))?
+                        Err(AppError::MessageWithoutSender(
+                            cx.chat_id(),
+                            msg.to_string(),
+                        ))?
                     }
                 };
 
                 if let Some(conversation) = CONVERSATIONS.lock().await.get_mut(cx.chat_id()) {
                     conversation.add(user.clone(), msg.to_string());
-                    let reply = conversation.produce_reply(&*OPENAI_CLIENT.lock().await).await?;
+                    let reply = conversation
+                        .produce_reply(&*OPENAI_CLIENT.lock().await)
+                        .await?;
                     cx.answer(reply).send().await?;
                 }
             }

@@ -1,15 +1,15 @@
-use std::collections::{HashMap, VecDeque};
+use crate::{ChatId, MessageId};
+use itertools::Itertools;
+use lazy_static::lazy_static;
+use openai_api::api::CompletionArgs;
+use openai_api::Client;
+use settings::{Model, Settings};
 use std::collections::hash_map::Entry;
+use std::collections::{HashMap, VecDeque};
 use std::iter;
 use std::num::NonZeroUsize;
-use itertools::Itertools;
-use openai_api::api::CompletionArgs;
-use teloxide::types::User;
-use crate::{ChatId, MessageId};
-use lazy_static::lazy_static;
-use openai_api::Client;
 use teloxide::prelude::*;
-use settings::{Settings, Model};
+use teloxide::types::User;
 
 use crate::result::{AppError, Result};
 
@@ -42,7 +42,11 @@ impl Conversation {
     // limit = 0 means no limit
     fn new(limit: usize) -> Self {
         Self {
-            messages: VecDeque::with_capacity(20),
+            messages: VecDeque::with_capacity(if limit == 0 || limit > 100 {
+                100
+            } else {
+                limit
+            }),
             limit: NonZeroUsize::new(limit),
             last_reply: None,
             settings: Settings::default(),
@@ -61,14 +65,11 @@ impl Conversation {
 
     fn generate_prompt(&self) -> String {
         // TODO: keep cached prompt string
-        self
-            .messages
+        self.messages
             .iter()
-            .map(|(user, msg)| {
-                match user {
-                    FromUser::User(user) => format!("{}: {}", user.first_name, msg),
-                    FromUser::Myself => format!("You: {}", msg),
-                }
+            .map(|(user, msg)| match user {
+                FromUser::User(user) => format!("{}: {}", user.first_name, msg),
+                FromUser::Myself => format!("You: {}", msg),
             })
             .chain(iter::once("You: ".to_string()))
             .join("\n")
@@ -92,10 +93,7 @@ impl Conversation {
             .build()
             .unwrap();
 
-        let reply = client
-            .complete_prompt(args)
-            .await?
-            .choices[0]
+        let reply = client.complete_prompt(args).await?.choices[0]
             .text
             .trim_start()
             .to_string();
@@ -126,6 +124,10 @@ impl Conversation {
         Ok(reply)
     }
 
+    pub fn clear_history(&mut self) {
+        self.messages.clear();
+    }
+
     pub async fn deactivate_settings_dialog(&mut self, requester: &Bot) -> Result {
         if let Some((chat_id, message_id)) = self.active_settings_dialog.take() {
             requester
@@ -149,20 +151,23 @@ impl Conversations {
     }
 
     #[must_use]
-    pub fn start(&mut self, chat: ChatId) -> Result {
+    pub fn begin(&mut self, chat: ChatId) -> Result {
         match self.0.entry(chat) {
             Entry::Occupied(_) => Err(AppError::ConversationAlreadyRunning(chat))?,
             Entry::Vacant(entry) => {
                 entry.insert(Conversation::new(DEFAULT_CONVERSATION_LIMIT));
                 Ok(())
-            },
+            }
         }
     }
 
     #[must_use]
     pub fn end(&mut self, chat: ChatId) -> Result {
         match self.0.entry(chat) {
-            Entry::Occupied(entry) => { entry.remove(); Ok(()) },
+            Entry::Occupied(entry) => {
+                entry.remove();
+                Ok(())
+            }
             Entry::Vacant(_) => Err(AppError::NoConversationRunning(chat))?,
         }
     }

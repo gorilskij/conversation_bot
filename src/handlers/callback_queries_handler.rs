@@ -1,10 +1,10 @@
+use crate::conversation::settings::Settings;
+use crate::result::{Error, Result};
+use crate::{AppError, ChatId, MessageId, CONVERSATIONS, ERROR_LOGGER};
 use itertools::Itertools;
 use teloxide::prelude::*;
 use teloxide::types::{InlineKeyboardButton, InlineKeyboardButtonKind, InlineKeyboardMarkup};
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use crate::{AppError, ChatId, CONVERSATIONS, ERROR_LOGGER, MessageId};
-use crate::conversation::settings::Settings;
-use crate::result::{Result, Error};
 
 const TEMP_SUB_05: &'static str = "temp_sub_0.5";
 const TEMP_SUB_02: &'static str = "temp_sub_0.2";
@@ -16,15 +16,21 @@ const TEMP_BACK: &'static str = "temp_back";
 
 fn get_temperature_editor_markup() -> InlineKeyboardMarkup {
     const BUTTON_ROW_TEXT: [(&'static str, &'static str); 6] = [
-        ("-0.5", TEMP_SUB_05), ("-0.2", TEMP_SUB_02), ("-0.1", TEMP_SUB_01),
-        ("+0.1", TEMP_ADD_01), ("+0.2", TEMP_ADD_02), ("+0.5", TEMP_ADD_05),
+        ("-0.5", TEMP_SUB_05),
+        ("-0.2", TEMP_SUB_02),
+        ("-0.1", TEMP_SUB_01),
+        ("+0.1", TEMP_ADD_01),
+        ("+0.2", TEMP_ADD_02),
+        ("+0.5", TEMP_ADD_05),
     ];
     let button_row = BUTTON_ROW_TEXT
         .into_iter()
-        .map(|(text, data)| InlineKeyboardButton::new(
-            text,
-            InlineKeyboardButtonKind::CallbackData(data.to_string()),
-        ))
+        .map(|(text, data)| {
+            InlineKeyboardButton::new(
+                text,
+                InlineKeyboardButtonKind::CallbackData(data.to_string()),
+            )
+        })
         .collect_vec();
     let back_button = InlineKeyboardButton::new(
         "back",
@@ -42,7 +48,7 @@ async fn handle_temperature_editor_callback_query(
     data: &str,
     chat_id: ChatId,
     message_id: MessageId,
-    settings: &mut Settings
+    settings: &mut Settings,
 ) -> Result {
     let delta = match data {
         TEMP_SUB_05 => -0.5,
@@ -52,28 +58,30 @@ async fn handle_temperature_editor_callback_query(
         TEMP_ADD_02 => 0.2,
         TEMP_ADD_05 => 0.5,
         TEMP_BACK => {
-            cx
-                .requester
-                .edit_message_text(
-                    chat_id,
-                    message_id,
-                    settings.get_message_text(),
-                )
+            cx.requester
+                .edit_message_text(chat_id, message_id, settings.get_message_text())
                 .reply_markup(settings.get_inline_keyboard_markup())
                 .send()
                 .await?;
 
             return Ok(());
-        },
-        data => return Err(Error::App(AppError::UnexpectedCallbackQueryData(data.to_string()))),
+        }
+        data => {
+            return Err(Error::App(AppError::UnexpectedCallbackQueryData(
+                data.to_string(),
+            )))
+        }
     };
     let mut new_temperature = settings.temperature + delta;
-    if new_temperature < 0. { new_temperature = 0. };
-    if new_temperature > 2. { new_temperature = 2. };
+    if new_temperature < 0. {
+        new_temperature = 0.
+    };
+    if new_temperature > 2. {
+        new_temperature = 2.
+    };
     settings.temperature = new_temperature;
 
-    cx
-        .requester
+    cx.requester
         .edit_message_text(
             chat_id,
             message_id,
@@ -85,8 +93,7 @@ async fn handle_temperature_editor_callback_query(
 
     println!("set temperature to {:?}", new_temperature);
 
-    cx
-        .requester
+    cx.requester
         .answer_callback_query(cx.update.id.clone())
         .text(format!("Set temperature to: {:.1}", new_temperature))
         .send()
@@ -123,12 +130,14 @@ async fn handle_callback_query(cx: UpdateWithCx<&Bot, CallbackQuery>) -> Result 
 
     match cx.update.data.as_ref().map(String::as_str) {
         Some(Settings::SETTINGS_CYCLE_MODEL) => {
-            println!("editing setting \"model\", current value: {:?}", settings.model);
+            println!(
+                "editing setting \"model\", current value: {:?}",
+                settings.model
+            );
 
             let new_model = settings.cycle_model();
 
-            cx
-                .requester
+            cx.requester
                 .edit_message_reply_markup(chat_id, message.id)
                 .reply_markup(settings.get_inline_keyboard_markup())
                 .send()
@@ -138,10 +147,12 @@ async fn handle_callback_query(cx: UpdateWithCx<&Bot, CallbackQuery>) -> Result 
             answer_callback_query!(format!("Set model to: {:?}", new_model));
         }
         Some(Settings::SETTINGS_EDIT_TEMPERATURE) => {
-            println!("editing setting \"temperature\", current value: {:.1}", settings.temperature);
+            println!(
+                "editing setting \"temperature\", current value: {:.1}",
+                settings.temperature
+            );
 
-            cx
-                .requester
+            cx.requester
                 .edit_message_text(
                     chat_id,
                     message.id,
@@ -152,31 +163,42 @@ async fn handle_callback_query(cx: UpdateWithCx<&Bot, CallbackQuery>) -> Result 
                 .await?;
         }
         Some(Settings::SETTINGS_TOGGLE_TRAILING_SPACE) => {
-            println!("editing setting \"trailing space\", current value: {:?}", settings.trailing_space_in_prompt);
+            println!(
+                "editing setting \"trailing space\", current value: {:?}",
+                settings.trailing_space_in_prompt
+            );
 
             settings.trailing_space_in_prompt = !settings.trailing_space_in_prompt;
 
-            cx
-                .requester
+            cx.requester
                 .edit_message_reply_markup(chat_id, message.id)
                 .reply_markup(settings.get_inline_keyboard_markup())
                 .send()
                 .await?;
 
-            println!("set trailing space to {:?}", settings.trailing_space_in_prompt);
-            answer_callback_query!(format!("Set trailing space to: {:?}", settings.trailing_space_in_prompt));
+            println!(
+                "set trailing space to {:?}",
+                settings.trailing_space_in_prompt
+            );
+            answer_callback_query!(format!(
+                "Set trailing space to: {:?}",
+                settings.trailing_space_in_prompt
+            ));
         }
         Some(Settings::SETTINGS_EDIT_STOP_TOKENS) => {
             println!("editing setting \"stop tokens\"");
-
-
         }
         Some(Settings::SETTINGS_DONE) => {
-            conversation.deactivate_settings_dialog(&cx.requester).await?;
+            conversation
+                .deactivate_settings_dialog(&cx.requester)
+                .await?;
             answer_callback_query!("Done editing settings");
         }
-        Some(data) => handle_temperature_editor_callback_query(&cx, data, chat_id, message.id, settings).await?,
-        None => return Err(Error::App(AppError::NoCallbackQueryData))
+        Some(data) => {
+            handle_temperature_editor_callback_query(&cx, data, chat_id, message.id, settings)
+                .await?
+        }
+        None => return Err(Error::App(AppError::NoCallbackQueryData)),
     }
 
     Ok(())

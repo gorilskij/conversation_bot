@@ -1,7 +1,7 @@
+use crate::ChatId;
 use futures::io;
 use std::result;
 use teloxide::RequestError;
-use crate::ChatId;
 
 #[must_use]
 pub type Result<T = ()> = result::Result<T, Error>;

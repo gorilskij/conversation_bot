@@ -1,8 +1,8 @@
+use crate::result::{Error, Result};
+use chrono::Utc;
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::io::{BufWriter, Write};
-use chrono::Utc;
-use crate::result::{Error, Result};
 
 const LOG_FILE_PATH: &str = "error_log.txt";
 
@@ -23,7 +23,8 @@ impl ErrorLogger {
 
         let mut bw = BufWriter::new(file);
         let line = format!("\n[UTC {:?}] RESTART\n", Utc::now());
-        bw.write(line.as_bytes()).expect("failed to write to error log");
+        bw.write(line.as_bytes())
+            .expect("failed to write to error log");
 
         println!("opened error file");
         Self(bw)

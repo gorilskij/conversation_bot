@@ -1,5 +1,5 @@
-use std::fmt::Debug;
 use itertools::Itertools;
+use std::fmt::Debug;
 use teloxide::types::{InlineKeyboardButton, InlineKeyboardButtonKind, InlineKeyboardMarkup};
 
 #[derive(Copy, Clone, Debug)]
@@ -47,40 +47,60 @@ impl Settings {
 
     pub fn get_done_text(&self) -> String {
         format!(
-            "Done editing settings\nmodel: {:?}\ntemperature: {:.1}\ntrailing space: {}\nstop tokens: {}",
+            "Done editing settings\n    model: {:?}\n    temperature: {:.1}\n    \
+            trailing space: {}\n    stop tokens: {}",
             self.model,
             self.temperature,
             self.trailing_space_in_prompt,
-            self.stop_tokens.iter().map(|t| format!("{:?}", t)).join(", "),
+            self.stop_tokens
+                .iter()
+                .map(|t| format!("{:?}", t))
+                .join(", "),
         )
     }
 
     pub fn get_inline_keyboard_markup(&self) -> InlineKeyboardMarkup {
         let button_text: [&[(_, _)]; 3] = [
             &[
-                (format!("model: {:?}", self.model), Self::SETTINGS_CYCLE_MODEL),
-                (format!("temperature: {:.1}", self.temperature), Self::SETTINGS_EDIT_TEMPERATURE),
-            ], &[
-                (format!("trailing space: {}", self.trailing_space_in_prompt), Self::SETTINGS_TOGGLE_TRAILING_SPACE),
-                (format!("stop tokens: {}", self
-                    .stop_tokens
-                    .iter()
-                    .map(|t| if t == "\n" { "\\n".to_string() } else { format!("\"{}\"", t) })
-                    .join(", ")), Self::SETTINGS_EDIT_STOP_TOKENS),
-            ], &[
-                ("done".to_string(), Self::SETTINGS_DONE),
-            ]
+                (
+                    format!("model: {:?}", self.model),
+                    Self::SETTINGS_CYCLE_MODEL,
+                ),
+                (
+                    format!("temperature: {:.1}", self.temperature),
+                    Self::SETTINGS_EDIT_TEMPERATURE,
+                ),
+            ],
+            &[
+                (
+                    format!("trailing space: {}", self.trailing_space_in_prompt),
+                    Self::SETTINGS_TOGGLE_TRAILING_SPACE,
+                ),
+                (
+                    format!(
+                        "stop tokens: {}",
+                        self.stop_tokens
+                            .iter()
+                            .map(|t| if t == "\n" {
+                                "\\n".to_string()
+                            } else {
+                                format!("\"{}\"", t)
+                            })
+                            .join(", ")
+                    ),
+                    Self::SETTINGS_EDIT_STOP_TOKENS,
+                ),
+            ],
+            &[("done".to_string(), Self::SETTINGS_DONE)],
         ];
-        let buttons = button_text
-            .into_iter()
-            .map(|row|
-                row.into_iter().map(|(text, data)|
-                    InlineKeyboardButton::new(
-                        text,
-                        InlineKeyboardButtonKind::CallbackData(data.to_string()),
-                    )
+        let buttons = button_text.into_iter().map(|row| {
+            row.into_iter().map(|(text, data)| {
+                InlineKeyboardButton::new(
+                    text,
+                    InlineKeyboardButtonKind::CallbackData(data.to_string()),
                 )
-            );
+            })
+        });
         InlineKeyboardMarkup::new(buttons)
     }
 }
@@ -91,7 +111,10 @@ impl Default for Settings {
             model: Self::DEFAULT_MODEL,
             temperature: Self::DEFAULT_TEMPERATURE,
             trailing_space_in_prompt: Self::DEFAULT_TRAILING_SPACE,
-            stop_tokens: Self::DEFAULT_STOP_TOKENS.into_iter().map(ToString::to_string).collect_vec(),
+            stop_tokens: Self::DEFAULT_STOP_TOKENS
+                .into_iter()
+                .map(ToString::to_string)
+                .collect_vec(),
         }
     }
 }

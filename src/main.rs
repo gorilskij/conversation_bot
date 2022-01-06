@@ -1,24 +1,24 @@
 #![feature(try_blocks)]
 #![deny(unused_must_use)]
 
-use std::env;
-use teloxide::Bot;
+use crate::conversation::FromUser;
+use crate::handlers::{callback_queries_handler, messages_handler};
+use crate::result::AppError;
+use conversation::Conversations;
+use error_logging::ErrorLogger;
+use futures::lock::Mutex;
 use lazy_static::lazy_static;
+use openai_api::Client;
+use std::env;
+use teloxide::prelude::*;
+use teloxide::Bot;
 use tokio::select;
 use tokio::signal::ctrl_c;
-use futures::lock::Mutex;
-use error_logging::ErrorLogger;
-use teloxide::prelude::*;
-use conversation::Conversations;
-use crate::result::AppError;
-use openai_api::Client;
-use crate::conversation::FromUser;
-use crate::handlers::{messages_handler, callback_queries_handler};
 
-mod error_logging;
-mod result;
 mod conversation;
+mod error_logging;
 mod handlers;
+mod result;
 
 type ChatId = i64;
 type MessageId = i32;
