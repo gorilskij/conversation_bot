@@ -13,6 +13,7 @@ log = "0.4"
 
 futures = "0.3"
 tokio = { version = "1.12", features = ["macros", "io-util", "signal", "time", "rt-multi-thread"] }
+tokio-stream = "0.1.8"
 
 regex = "1.5.4"
 itertools = "0.10.1"
@@ -24,3 +25,4 @@ chrono = "0.4.19"
 openai-api = { git = "https://github.com/gorilskij/openai-api-rust" }
 
 lazy_static = "1.4.0"
+static_assertions = "1.1.0"

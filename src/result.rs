@@ -40,8 +40,10 @@ impl From<openai_api::Error> for Error {
 
 #[derive(Debug)]
 pub enum AppError {
-    StartDuplicateConversation(ChatId),
-    EndNonexistentConversation(ChatId),
+    ConversationAlreadyRunning(ChatId),
+    NoConversationRunning(ChatId),
     MessageWithoutSender(ChatId, String),
     MessageTooOld,
+    UnexpectedCallbackQueryData(String),
+    NoCallbackQueryData,
 }
