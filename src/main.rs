@@ -9,7 +9,7 @@ use error_logging::ErrorLogger;
 use futures::lock::Mutex;
 use lazy_static::lazy_static;
 use openai_api::Client;
-use std::env;
+use std::{env, fs};
 use teloxide::prelude::*;
 use teloxide::Bot;
 use tokio::select;
@@ -27,8 +27,9 @@ lazy_static! {
     static ref ERROR_LOGGER: Mutex<ErrorLogger> = Mutex::new(ErrorLogger::new());
     // one per chat
     static ref OPENAI_CLIENT: Mutex<Client> = {
-        let token = env::var("OPENAI_TOKEN").expect("error getting openai token");
-        let client = Client::new(&token).unwrap();
+        let token = fs::read_to_string("secrets/openai.token")
+            .expect("error reading openai token");
+        let client = Client::new(token.trim()).unwrap();
         Mutex::new(client)
     };
 
@@ -53,8 +54,9 @@ async fn run_bot(bot: &'static Bot) {
 async fn main() {
     lazy_static! {
         static ref BOT: Bot = {
-            let token = env::var("CONVERSATIONBOT_TOKEN").expect("error getting token");
-            Bot::new(token)
+            let token = fs::read_to_string("secrets/bot.token")
+                .expect("error reading telegram token");
+            Bot::new(token.trim())
         };
     }
 
