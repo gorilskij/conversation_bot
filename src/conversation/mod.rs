@@ -29,9 +29,19 @@ pub enum FromUser {
     Myself,
 }
 
+impl FromUser {
+    fn to_name(&self, conversation: &Conversation) -> String {
+        use FromUser::*;
+        match self {
+            User(user) => user.first_name.clone(),
+            Myself => conversation.settings.bot_name.clone(),
+        }
+    }
+}
+
 pub struct Conversation {
     // in chronological order, None user means bot sent the message
-    messages: VecDeque<(FromUser, String)>,
+    messages: VecDeque<(String, String)>,
     limit: Option<NonZeroUsize>,
     last_reply: Option<String>,
     pub settings: Settings,
@@ -60,18 +70,15 @@ impl Conversation {
                 self.messages.pop_front();
             }
         }
-        self.messages.push_back((from, msg));
+        self.messages.push_back((from.to_name(self), msg));
     }
 
     fn generate_prompt(&self) -> String {
         // TODO: keep cached prompt string
         self.messages
             .iter()
-            .map(|(user, msg)| match user {
-                FromUser::User(user) => format!("{}: {}", user.first_name, msg),
-                FromUser::Myself => format!("You: {}", msg),
-            })
-            .chain(iter::once("You: ".to_string()))
+            .map(|(user, msg)| format!("{}: {}", user, msg))
+            .chain(iter::once(format!("{}: ", self.settings.bot_name)))
             .join("\n")
     }
 
@@ -141,6 +148,19 @@ impl Conversation {
 
         Ok(())
     }
+
+    pub async fn replace_settings_dialog(&mut self, text: &str, requester: &Bot) -> Result {
+        if let Some((chat_id, message_id)) = self.active_settings_dialog.take() {
+            requester
+                .edit_message_text(chat_id, message_id, text)
+                .send()
+                .await?;
+
+            println!("replaced settings dialog with \"{}\"", text);
+        }
+
+        Ok(())
+    }
 }
 
 pub struct Conversations(HashMap<ChatId, Conversation>);
@@ -150,7 +170,6 @@ impl Conversations {
         Self(HashMap::new())
     }
 
-    #[must_use]
     pub fn begin(&mut self, chat: ChatId) -> Result {
         match self.0.entry(chat) {
             Entry::Occupied(_) => Err(AppError::ConversationAlreadyRunning(chat))?,
@@ -161,7 +180,6 @@ impl Conversations {
         }
     }
 
-    #[must_use]
     pub fn end(&mut self, chat: ChatId) -> Result {
         match self.0.entry(chat) {
             Entry::Occupied(entry) => {

@@ -3,9 +3,9 @@ use futures::io;
 use std::result;
 use teloxide::RequestError;
 
-#[must_use]
 pub type Result<T = ()> = result::Result<T, Error>;
 
+#[must_use]
 #[derive(Debug)]
 pub enum Error {
     Request(RequestError),

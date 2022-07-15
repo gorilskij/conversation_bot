@@ -1,21 +1,23 @@
 use crate::conversation::settings::Settings;
 use crate::result::{Error, Result};
 use crate::{AppError, ChatId, MessageId, CONVERSATIONS, ERROR_LOGGER};
+use async_trait::async_trait;
 use itertools::Itertools;
 use teloxide::prelude::*;
 use teloxide::types::{InlineKeyboardButton, InlineKeyboardButtonKind, InlineKeyboardMarkup};
 use tokio_stream::wrappers::UnboundedReceiverStream;
+use crate::handlers::messages_handler::{SPECIAL_HANDLERS, SpecialHandler};
 
-const TEMP_SUB_05: &'static str = "temp_sub_0.5";
-const TEMP_SUB_02: &'static str = "temp_sub_0.2";
-const TEMP_SUB_01: &'static str = "temp_sub_0.1";
-const TEMP_ADD_01: &'static str = "temp_add_0.1";
-const TEMP_ADD_02: &'static str = "temp_add_0.2";
-const TEMP_ADD_05: &'static str = "temp_add_0.5";
-const TEMP_BACK: &'static str = "temp_back";
+const TEMP_SUB_05: &str = "temp_sub_0.5";
+const TEMP_SUB_02: &str = "temp_sub_0.2";
+const TEMP_SUB_01: &str = "temp_sub_0.1";
+const TEMP_ADD_01: &str = "temp_add_0.1";
+const TEMP_ADD_02: &str = "temp_add_0.2";
+const TEMP_ADD_05: &str = "temp_add_0.5";
+const TEMP_BACK: &str = "temp_back";
 
 fn get_temperature_editor_markup() -> InlineKeyboardMarkup {
-    const BUTTON_ROW_TEXT: [(&'static str, &'static str); 6] = [
+    const BUTTON_ROW_TEXT: [(&str, &str); 6] = [
         ("-0.5", TEMP_SUB_05),
         ("-0.2", TEMP_SUB_02),
         ("-0.1", TEMP_SUB_01),
@@ -128,7 +130,7 @@ async fn handle_callback_query(cx: UpdateWithCx<&Bot, CallbackQuery>) -> Result 
         }
     }
 
-    match cx.update.data.as_ref().map(String::as_str) {
+    match cx.update.data.as_deref() {
         Some(Settings::SETTINGS_CYCLE_MODEL) => {
             println!(
                 "editing setting \"model\", current value: {:?}",
@@ -186,11 +188,44 @@ async fn handle_callback_query(cx: UpdateWithCx<&Bot, CallbackQuery>) -> Result 
             ));
         }
         Some(Settings::SETTINGS_EDIT_STOP_TOKENS) => {
+            // TODO
             println!("editing setting \"stop tokens\"");
+        }
+        Some(Settings::SETTINGS_EDIT_BOT_NAME) => {
+            println!("editing setting \"bot name\"");
+
+            conversation
+                .replace_settings_dialog("Enter a new name for the bot:", cx.requester)
+                .await?;
+
+            struct EditBotNameHandler(ChatId);
+
+            #[async_trait]
+            impl SpecialHandler for EditBotNameHandler {
+                async fn handle_message(&self, cx: UpdateWithCx<&Bot, Message>) -> Result<bool> {
+                    if let Some(new_name) = cx.update.text() {
+                        println!("setting bot name to \"{}\"", new_name);
+                        let mut conversations = CONVERSATIONS.lock().await;
+                        println!("locked conversations");
+                        let conversation = conversations
+                            .get_mut(self.0)
+                            .ok_or(Error::App(AppError::NoConversationRunning(self.0)))?;
+                        let settings = &mut conversation.settings;
+                        settings.bot_name = new_name.to_string();
+                        Ok(true)
+                    } else {
+                        cx.answer("Bot name must be text").send().await?;
+                        Ok(false)
+                    }
+                }
+            }
+
+            SPECIAL_HANDLERS.lock().await.insert(chat_id, Box::new(EditBotNameHandler(chat_id)));
+            answer_callback_query!("Opened bot renaming dialog");
         }
         Some(Settings::SETTINGS_DONE) => {
             conversation
-                .deactivate_settings_dialog(&cx.requester)
+                .deactivate_settings_dialog(cx.requester)
                 .await?;
             answer_callback_query!("Done editing settings");
         }

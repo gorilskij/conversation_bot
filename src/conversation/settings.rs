@@ -13,6 +13,7 @@ pub enum Model {
 
 pub struct Settings {
     pub model: Model,
+    pub bot_name: String,
     pub temperature: f64,
     pub trailing_space_in_prompt: bool,
     pub stop_tokens: Vec<String>,
@@ -39,6 +40,7 @@ impl Settings {
     pub const SETTINGS_EDIT_TEMPERATURE: &'static str = "settings_edit_temperature";
     pub const SETTINGS_TOGGLE_TRAILING_SPACE: &'static str = "settings_toggle_trailing_space";
     pub const SETTINGS_EDIT_STOP_TOKENS: &'static str = "settings_edit_stop_tokens";
+    pub const SETTINGS_EDIT_BOT_NAME: &'static str = "settings_edit_bot_name";
     pub const SETTINGS_DONE: &'static str = "settings_done";
 
     pub fn get_message_text(&self) -> String {
@@ -60,7 +62,7 @@ impl Settings {
     }
 
     pub fn get_inline_keyboard_markup(&self) -> InlineKeyboardMarkup {
-        let button_text: [&[(_, _)]; 3] = [
+        let button_text: [&[(_, _)]; 4] = [
             &[
                 (
                     format!("model: {:?}", self.model),
@@ -91,10 +93,16 @@ impl Settings {
                     Self::SETTINGS_EDIT_STOP_TOKENS,
                 ),
             ],
+            &[
+                (
+                    format!("bot name: {}", self.bot_name),
+                    Self::SETTINGS_EDIT_BOT_NAME,
+                ),
+            ],
             &[("done".to_string(), Self::SETTINGS_DONE)],
         ];
         let buttons = button_text.into_iter().map(|row| {
-            row.into_iter().map(|(text, data)| {
+            row.iter().map(|(text, data)| {
                 InlineKeyboardButton::new(
                     text,
                     InlineKeyboardButtonKind::CallbackData(data.to_string()),
@@ -108,11 +116,12 @@ impl Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            bot_name: "You".to_string(),
             model: Self::DEFAULT_MODEL,
             temperature: Self::DEFAULT_TEMPERATURE,
             trailing_space_in_prompt: Self::DEFAULT_TRAILING_SPACE,
             stop_tokens: Self::DEFAULT_STOP_TOKENS
-                .into_iter()
+                .iter()
                 .map(ToString::to_string)
                 .collect_vec(),
         }

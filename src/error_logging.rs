@@ -23,7 +23,7 @@ impl ErrorLogger {
 
         let mut bw = BufWriter::new(file);
         let line = format!("\n[UTC {:?}] RESTART\n", Utc::now());
-        bw.write(line.as_bytes())
+        bw.write_all(line.as_bytes())
             .expect("failed to write to error log");
 
         println!("opened error file");
@@ -34,7 +34,7 @@ impl ErrorLogger {
         if let Err(e) = result {
             let line = generate_log_line(e);
             self.0
-                .write(line.as_bytes())
+                .write_all(line.as_bytes())
                 .expect("failed to write to error log");
         }
     }
